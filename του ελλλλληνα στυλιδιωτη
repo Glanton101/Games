@@ -1,0 +1,139 @@
+#include <QApplication>
+#include <QWidget>
+#include <QPushButton>
+#include <QLabel>
+#include <QVBoxLayout>
+#include <QMessageBox>
+#include <QString>
+#include <vector>
+#include <map>
+#include <random>
+#include <ctime>
+
+class MafiaGame : public QWidget {
+    Q_OBJECT
+
+public:
+    MafiaGame(QWidget *parent = nullptr);
+
+private slots:
+    void startGame();
+    void nextPhase();
+    void assignRoles();
+    void handleNightPhase();
+    void handleDayPhase();
+    void voteElimination();
+
+private:
+    QPushButton *startButton;
+    QPushButton *nextPhaseButton;
+    QLabel *statusLabel;
+    QVBoxLayout *layout;
+
+    enum Phase { NIGHT, DAY };
+    Phase currentPhase;
+    
+    struct Player {
+        QString name;
+        QString role;
+        bool alive = true;
+    };
+    
+    std::vector<Player> players;
+    std::map<QString, int> roleCount;
+    
+    void setupGame();
+    int getRandomAlivePlayer();
+};
+
+MafiaGame::MafiaGame(QWidget *parent) : QWidget(parent) {
+    layout = new QVBoxLayout(this);
+    
+    startButton = new QPushButton("Ξεκίνημα Παιχνιδιού", this);
+    nextPhaseButton = new QPushButton("Επόμενη Φάση", this);
+    statusLabel = new QLabel("Καλώς ήρθατε στο Μafia Game!", this);
+    
+    layout->addWidget(statusLabel);
+    layout->addWidget(startButton);
+    layout->addWidget(nextPhaseButton);
+    
+    connect(startButton, &QPushButton::clicked, this, &MafiaGame::startGame);
+    connect(nextPhaseButton, &QPushButton::clicked, this, &MafiaGame::nextPhase);
+    
+    setLayout(layout);
+    setWindowTitle("Mafia Game");
+    resize(400, 200);
+}
+
+void MafiaGame::startGame() {
+    setupGame();
+    assignRoles();
+    statusLabel->setText("Το παιχνίδι ξεκινά! Φάση: Νύχτα");
+    currentPhase = NIGHT;
+}
+
+void MafiaGame::setupGame() {
+    players.clear();
+    roleCount = { {"Δολοφόνος", 1}, {"Αστυνομικός", 1}, {"Πολίτης", 3} };
+    
+    for (int i = 1; i <= 5; ++i) {
+        players.push_back({"Παίκτης " + QString::number(i), "", true});
+    }
+}
+
+void MafiaGame::assignRoles() {
+    std::vector<QString> availableRoles;
+    for (const auto &pair : roleCount) {
+        for (int i = 0; i < pair.second; ++i) {
+            availableRoles.push_back(pair.first);
+        }
+    }
+    std::shuffle(availableRoles.begin(), availableRoles.end(), std::default_random_engine(time(nullptr)));
+    
+    for (size_t i = 0; i < players.size(); ++i) {
+        players[i].role = availableRoles[i];
+    }
+}
+
+void MafiaGame::nextPhase() {
+    if (currentPhase == NIGHT) {
+        handleNightPhase();
+    } else {
+        handleDayPhase();
+    }
+}
+
+void MafiaGame::handleNightPhase() {
+    int victimIndex = getRandomAlivePlayer();
+    players[victimIndex].alive = false;
+    statusLabel->setText("Νύχτα: Ο δολοφόνος επιτέθηκε σε έναν παίκτη!");
+    currentPhase = DAY;
+}
+
+void MafiaGame::handleDayPhase() {
+    voteElimination();
+    statusLabel->setText("Μέρα: Οι παίκτες συζητούν και ψηφίζουν!");
+    currentPhase = NIGHT;
+}
+
+void MafiaGame::voteElimination() {
+    int eliminatedIndex = getRandomAlivePlayer();
+    players[eliminatedIndex].alive = false;
+}
+
+int MafiaGame::getRandomAlivePlayer() {
+    std::vector<int> alivePlayers;
+    for (size_t i = 0; i < players.size(); ++i) {
+        if (players[i].alive) {
+            alivePlayers.push_back(i);
+        }
+    }
+    return alivePlayers[rand() % alivePlayers.size()];
+}
+
+int main(int argc, char *argv[]) {
+    QApplication app(argc, argv);
+    MafiaGame game;
+    game.show();
+    return app.exec();
+}
