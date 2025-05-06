@@ -1,0 +1,159 @@
+#include <iostream>
+#include <vector>
+#include <map>
+#include <algorithm>
+#include <random>
+#include <ctime>
+#include <set>
+#include <locale>
+#include <windows.h>
+#include <QtWidgets/QApplication>
+#include <QtWidgets/QWidget>
+#include <QtWidgets/QPushButton>
+#include <QtWidgets/QLabel>
+#include <QtWidgets/QVBoxLayout>
+#include <QtWidgets/QCheckBox>
+#include <QtWidgets/QMessageBox>
+
+struct Player {
+    std::string name;
+    std::string role;
+    bool alive = true;
+    bool confirmedAction = false;  // New: Used to confirm player's action (e.g., being voted or targeted)
+};
+
+std::vector<Player> players;
+int maxMafia = 2;
+int maxCops = 2;
+int numCitizens;
+int totalPlayers;
+
+std::random_device rd;
+std::mt19937 rng(rd());
+
+// Qt GUI elements
+QPushButton *confirmButton;
+QLabel *statusLabel;
+std::vector<QCheckBox*> playerCheckBoxes;
+
+bool isNameUnique(const std::string& name) {
+    for (const auto& p : players)
+        if (p.name == name)
+            return false;
+    return true;
+}
+
+void setupPlayers() {
+    std::cout << "Πόσοι παίκτες θα παίξουν; ";
+    std::cin >> totalPlayers;
+    while (totalPlayers < (maxMafia + maxCops + 1)) {
+        std::cout << "Χρειάζονται τουλάχιστον " << (maxMafia + maxCops + 1) << " παίκτες.\nΔώσε ξανά: ";
+        std::cin >> totalPlayers;
+    }
+
+    players.clear();
+    std::set<std::string> usedNames;
+    std::string name;
+
+    std::cin.ignore(); // Clear input buffer
+    for (int i = 0; i < totalPlayers; ++i) {
+        std::cout << "Όνομα παίκτη " << i + 1 << ": ";
+        std::getline(std::cin, name);
+        while (!isNameUnique(name)) {
+            std::cout << "Το όνομα υπάρχει ήδη. Δώσε άλλο: ";
+            std::getline(std::cin, name);
+        }
+        players.push_back({name, "", true});
+    }
+
+    numCitizens = totalPlayers - maxMafia - maxCops;
+}
+
+void assignRoles() {
+    std::vector<std::string> roles;
+
+    for (int i = 0; i < maxMafia; ++i) roles.push_back("Δολοφόνος");
+    for (int i = 0; i < maxCops; ++i) roles.push_back("Αστυνομικός");
+    for (int i = 0; i < numCitizens; ++i) roles.push_back("Πολίτης");
+
+    std::shuffle(roles.begin(), roles.end(), rng);
+
+    for (size_t i = 0; i < players.size(); ++i) {
+        players[i].role = roles[i];
+    }
+
+    std::cout << "\nΟι ρόλοι ανατέθηκαν. Ο καθένας βλέπει μυστικά τον ρόλο του:\n";
+    for (const auto& p : players) {
+        std::cout << p.name << ", πάτα Enter για να δεις τον ρόλο σου...";
+        std::cin.get();
+        std::cout << "Ο ρόλος σου είναι: " << p.role << "\n";
+        std::cout << "(πάτα Enter για να συνεχίσει ο επόμενος)\n";
+        std::cin.get();
+        std::system("clear || cls");
+    }
+}
+
+void createGUI() {
+    // Create Qt Application for the GUI
+    QApplication app(0, nullptr);
+    QWidget window;
+
+    QVBoxLayout *layout = new QVBoxLayout(&window);
+
+    // Create status label to show actions
+    statusLabel = new QLabel("Επιλέξτε έναν παίκτη για δράση.", &window);
+    layout->addWidget(statusLabel);
+
+    // Create checkboxes for players' actions
+    for (int i = 0; i < players.size(); ++i) {
+        QCheckBox *checkBox = new QCheckBox(QString::fromStdString(players[i].name), &window);
+        checkBox->setEnabled(players[i].alive); // Only enable if alive
+        playerCheckBoxes.push_back(checkBox);
+        layout->addWidget(checkBox);
+    }
+
+    // Create Confirm button
+    confirmButton = new QPushButton("Επιβεβαίωση", &window);
+    layout->addWidget(confirmButton);
+
+    // Connect button with function to confirm action
+    QObject::connect(confirmButton, &QPushButton::clicked, [&]() {
+        for (size_t i = 0; i < players.size(); ++i) {
+            if (playerCheckBoxes[i]->isChecked()) {
+                players[i].confirmedAction = true;
+                statusLabel->setText(QString::fromStdString(players[i].name + " επιβεβαίωσε τη δράση του."));
+                break;
+            }
+        }
+    });
+
+    window.setLayout(layout);
+    window.setWindowTitle("Μάφια - Επιβεβαίωση Δράσης");
+    window.show();
+    app.exec();
+}
+
+int main() {
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCP(CP_UTF8);
+
+    std::srand(time(nullptr));
+    std::cout << "🎭 Καλώς ήρθες στο διαδραστικό παιχνίδι Μάφια!\n";
+    setupPlayers();
+    assignRoles();
+
+    createGUI();  // Start the Qt GUI for action confirmation
+
+    // Main game loop
+    bool gameOver = false;
+    while (!gameOver) {
+        std::cout << "Φάση Νύχτας...\n";
+        // Add night phase mechanics here
+        std::cout << "Φάση Ημέρας...\n";
+        // Add day phase mechanics here
+        // Check victory conditions
+    }
+
+    std::cout << "\n🎮 Τέλος παιχνιδιού!\n";
+    return 0;
+}
